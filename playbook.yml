@@ -1,0 +1,46 @@
+---
+- hosts: servers
+  become: yes
+  tasks:
+    - name: install packages
+      apt:
+        name:
+          - bind9
+          - bind9-utils
+        state: present
+        update_cache: false
+  
+    - name: copy transferkey to all servers and the client
+      copy: src=named.zonetransfer.key dest=/etc/bind/named.zonetransfer.key owner=bind group=bind mode=0644
+  
+    - name: copy zones
+      copy: src={{ item }} dest=/etc/bind/ owner=bind group=bind mode=0660
+      with_fileglob:
+        - named.d*
+        - named.newdns.lab
+    - name: copy resolv.conf to the servers
+      template: src=servers-resolv.conf.j2 dest=/etc/resolv.conf owner=root group=root mode=0644
+    
+    - name: set /etc/bind permissions
+      file: path=/etc/bind owner=bind group=bind mode=2770
+      
+    - name: copy master named.conf
+      copy: src=master-named.conf dest=/etc/bind/named.conf owner=bind group=bind mode=0640
+      when: inventory_hostname == "ns01"
+      
+    - name: copy slave named.conf
+      copy: src=slave-named.conf dest=/etc/bind/named.conf owner=bind group=bind mode=0640
+      when: inventory_hostname == "ns02"
+  
+    - name: ensure named is running and enabled
+      service: name=named state=restarted enabled=yes
+
+- hosts: clients
+  become: yes
+  tasks:
+    - name: copy resolv.conf to the client
+      copy: src=client-resolv.conf dest=/etc/resolv.conf owner=root group=root mode=0644
+    - name: copy rndc conf file
+      copy: src=rndc.conf dest=/home/vagrant/rndc.conf owner=vagrant group=vagrant mode=0644
+    - name: copy motd to the client
+      copy: src=client-motd dest=/etc/motd owner=root group=root mode=0644

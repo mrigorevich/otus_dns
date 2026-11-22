@@ -1,0 +1,19 @@
+---
+- hosts: servers
+  become: yes
+  tasks:
+    - name: copy zones
+      copy: src={{ item }} dest=/etc/bind/ owner=bind group=bind mode=0660
+      with_fileglob:
+        - named.dns.lab.client
+    - name: copy master named.conf
+      copy: src=master-named.conf dest=/etc/bind/named.conf owner=bind group=bind mode=0640
+      when: inventory_hostname == "ns01"
+      
+    - name: copy slave named.conf
+      copy: src=slave-named.conf dest=/etc/bind/named.conf owner=bind group=bind mode=0640
+      when: inventory_hostname == "ns02"
+  
+    - name: ensure named is running and enabled
+      service: name=named state=restarted enabled=yes
+
